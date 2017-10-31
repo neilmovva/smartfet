@@ -239,24 +239,23 @@ void sssp_receive_loop() {
 
 	while(1) {
 		char input_char = usart_recv_blocking(USART1);
-		if(input_char == ENTER_CHAR) {
-			//terminate buffered string and reset write position
-			buffer_rx[buffer_idx] = '\0';
-			buffer_idx = 0;
-			//visually end user input with NL+CR
-			usart_send_str(STR_NEWLINE);
-			
-			//forward packet for further processing
-			sssp_process_packet_pwm((sssp_packet_pwm_t*) buffer_rx);
-		}  
+
 		if(char_is_alphanumeric(input_char)) {
-			//echo char, append to buffer if space
+			//echo char, append to buffer if space available
 			usart_send_blocking(USART1, input_char);
 			if(buffer_idx < sizeof(sssp_packet_pwm_t)){
 				buffer_rx[buffer_idx] = input_char;
 				buffer_idx++;
 			}
-		}
+		} else if(input_char == ENTER_CHAR) {
+			//visually end user input with NL+CR
+			usart_send_str(STR_NEWLINE);
+			//forward packet for further processing
+			sssp_process_packet_pwm((sssp_packet_pwm_t*) buffer_rx);
+			//clear buffered string and reset write position
+			memset(buffer_rx, '\0', sizeof(sssp_packet_pwm_t));
+			buffer_idx = 0;
+		}  
 	}
 }
 
