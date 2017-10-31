@@ -18,6 +18,7 @@ const uint32_t MIN_PWM_VALUE =  (0);
 #define PIN_CH1     GPIO6
 #define PIN_CH2     GPIO7
 #define PIN_CH3     GPIO9
+#define NUM_PWM_CHANNELS 	3
 
 #define PORT_UART 	GPIOA
 #define PIN_TX 		GPIO2
@@ -47,6 +48,11 @@ static void usart_send_str(const char* str) {
 	for(uint32_t idx_c = 0; idx_c < strlen(str); idx_c++ ){
 		usart_send_blocking(USART1, str[idx_c]);
 	}
+}
+
+static void usart_print(const char* str) {
+	usart_send_str(str);
+	usart_send_str(STR_NEWLINE);
 }
 
 static bool char_is_alphanumeric(char c) {
@@ -181,8 +187,7 @@ void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 		mini_snprintf(receipt, bufsz, 
 			"invalid; hdr: %s  ftr: %s  BUF: %s", 
 			str_hdr, str_ftr, pkt);
-		usart_send_str(receipt);
-		usart_send_str(STR_NEWLINE);
+		usart_print(receipt);
 
 		return;
 	}
@@ -197,17 +202,29 @@ void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 	//parse text data
 	uint32_t pwm_level = myAtoi(str_pwm_level);
 	uint32_t pwm_channel = myAtoi(str_pwm_channel);
+	bool command_is_sane = true;
 
-	//commit payload data to HW
-	pwm_update_ch(pwm_level, pwm_channel);
+	if(pwm_level > PERIOD_VALUE) {
+		usart_print("err: PWM value set too high, ignoring");
+		command_is_sane = false;
+	} 
+	if (pwm_channel > NUM_PWM_CHANNELS) {
+		usart_print("err: target channel not found, ignoring");
+		command_is_sane = false;
+	}
 
+
+	//if a valid command, commit payload data to HW
+	if(command_is_sane)
+		pwm_update_ch(pwm_level, pwm_channel);
+
+	
 	//send acknowledgement string
 	const int bufsz = 64;
 	char receipt[bufsz];
 	mini_snprintf(receipt, bufsz, "CH: %u  PWR: %u", 
 		pwm_channel, pwm_level);
-	usart_send_str(receipt);
-	usart_send_str(STR_NEWLINE);
+	usart_print(receipt);
 }
 
 
