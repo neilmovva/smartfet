@@ -20,6 +20,7 @@ const uint32_t MIN_PWM_VALUE =  (0);
 #define PIN_CH3     GPIO9
 #define NUM_PWM_CHANNELS 	3
 
+
 #define PORT_UART 	GPIOA
 #define PIN_TX 		GPIO2
 #define PIN_RX 		GPIO3
@@ -101,31 +102,39 @@ static void usart_setup(void) {
 }
 
 static void pwm_setup(void) {
-    rcc_periph_clock_enable(RCC_TIM3);
-    rcc_periph_clock_enable(RCC_GPIOA);
+	rcc_periph_clock_enable(RCC_TIM3); //ch 1, 2
+	rcc_periph_clock_enable(RCC_TIM1); //ch 3
+	rcc_periph_clock_enable(RCC_GPIOA); //all pwm pins are on port A
+	
     gpio_mode_setup(PORT_PWM, GPIO_MODE_AF, GPIO_PUPD_NONE, 
-        PIN_CH1 | PIN_CH2);
+        PIN_CH1 | PIN_CH2 | PIN_CH3);
     gpio_set_output_options(PORT_PWM, GPIO_OTYPE_PP, GPIO_OSPEED_25MHZ, 
-        PIN_CH1 | PIN_CH2);
-	// from datasheet, AF1 is the PWM / TIM function
-    gpio_set_af(PORT_PWM, GPIO_AF1, 
-        PIN_CH1 | PIN_CH2);
+        PIN_CH1 | PIN_CH2 | PIN_CH3);
+
+    gpio_set_af(PORT_PWM, GPIO_AF1, //ch 1, 2 use AF mode 1
+		PIN_CH1 | PIN_CH2);
+	gpio_set_af(PORT_PWM, GPIO_AF2, //ch3 uses AF mode 2
+		PIN_CH3);
 
 	// Reset the timer configuration and then set it up to use the CPU clock,
 	// center-aligned PWM, and an increasing rate.
 	timer_reset(TIM3);
+	timer_reset(TIM1);
 	timer_set_prescaler(TIM3, 0);
+	timer_set_prescaler(TIM1, 0);
 	timer_set_mode(TIM3, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_CENTER_1, TIM_CR1_DIR_UP);
+	timer_set_mode(TIM1, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_CENTER_1, TIM_CR1_DIR_UP);
 	timer_set_period(TIM3, PERIOD_VALUE);
+	timer_set_period(TIM1, PERIOD_VALUE);
 	//needed for advanced timers?
-	// timer_enable_break_main_output(TIM3);
+	timer_enable_break_main_output(TIM1);
 
-	// SW pin is timer 3, channel 2 (pin A7).
     // Enable the channel PWM output.
-    timer_enable_oc_output(TIM3, TIM_OC1);
-	timer_enable_oc_output(TIM3, TIM_OC2);
+    timer_enable_oc_output(TIM3, TIM_OC1); 	//ch1
+	timer_enable_oc_output(TIM3, TIM_OC2);	//ch2
+	timer_enable_oc_output(TIM1, TIM_OC2);	//ch3
 
-	// if the SW signal must be inverted, use PWM mode 2. [mode 1 == standard]
+	// PWM mode 2 inverts drive signals. [mode 1 == standard]
 	#ifdef DRV_INVERTED
 	#define PWM_TIMER_MODE TIM_OCM_PWM2
 	#else
@@ -133,38 +142,28 @@ static void pwm_setup(void) {
     #endif
     
     timer_set_oc_mode(TIM3, TIM_OC1, PWM_TIMER_MODE);
-    timer_set_oc_mode(TIM3, TIM_OC2, PWM_TIMER_MODE);
+	timer_set_oc_mode(TIM3, TIM_OC2, PWM_TIMER_MODE);
+	timer_set_oc_mode(TIM1, TIM_OC2, PWM_TIMER_MODE);
 	timer_enable_counter(TIM3);
+	timer_enable_counter(TIM1);
     timer_set_oc_value(TIM3, TIM_OC1, 0);
 	timer_set_oc_value(TIM3, TIM_OC2, 0);
+	timer_set_oc_value(TIM1, TIM_OC2, 0);
 }
 
 static void pwm_update_ch(uint32_t timer_threshold, int channel) {
-	// if(pulseVal = 0) {
-	// 	timer_disable_oc_output(TIM3, TIM_OC2);
-	// 	#ifdef DRV_INVERTED
-	// 	gpio_set(PORT_SW, PIN_SW);
-	// 	#else
-	// 	gpio_clear(PORT_SW, PIN_SW);
-	// 	#endif
-	// 	is_pwm_stopped_SW = true;
-	// 	return;
-	// } 
-	
-	// if(is_pwm_stopped_SW) {
-	// 	is_pwm_stopped_SW = false;
-	// 	pwm_setup();
-	// }
-
 	//discard input outside range
 	if(timer_threshold >= PERIOD_VALUE)
 		return;
-
-    if(channel == 1) {
-        timer_set_oc_value(TIM3, TIM_OC1, timer_threshold);
-    } else if(channel == 2) {
-        timer_set_oc_value(TIM3, TIM_OC2, timer_threshold);
-    }
+	
+	switch(channel) {
+		case 1:
+		timer_set_oc_value(TIM3, TIM_OC1, timer_threshold); break;
+		case 2:
+		timer_set_oc_value(TIM3, TIM_OC2, timer_threshold); break;
+		case 3:
+		timer_set_oc_value(TIM1, TIM_OC2, timer_threshold); break;
+	}
 	
 }
 
