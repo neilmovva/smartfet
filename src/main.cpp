@@ -49,7 +49,14 @@ static void usart_send_str(const char* str) {
 	}
 }
 
-static int myAtoi(char *str) {
+static bool char_is_alphanumeric(char c) {
+	bool is_num = (c >= 48U) && (c <= 57U);
+	bool is_uppercase = (c >= 65U) && (c <= 90U);
+	bool is_lowercase = (c >= 97U) && (c <= 122U);
+	return (is_num || is_uppercase || is_lowercase);
+}
+
+static int myAtoi(const char *str) {
     int res = 0; // Initialize result
     for (int i = 0; str[i] != '\0'; ++i)
         res = res*10 + str[i] - '0';
@@ -160,6 +167,50 @@ static void pwm_update_ch_pct(float duty_cycle, int channel) {
 	pwm_update_ch(timer_threshold, channel);
 }
 
+void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
+	int cmp_hdr = strncmp(pkt->hdr, BOOKEND_HDR, sizeof(pkt->hdr));
+	int cmp_ftr = strncmp(pkt->ftr, BOOKEND_FTR, sizeof(pkt->ftr));
+	if(cmp_hdr != 0 || cmp_ftr != 0){
+		char str_hdr[sizeof(pkt->hdr) + 1] = {};
+		char str_ftr[sizeof(pkt->ftr) + 1] = {};
+		strncat(str_hdr, pkt->hdr, sizeof(pkt->hdr));
+		strncat(str_ftr, pkt->ftr, sizeof(pkt->ftr));
+
+		const int bufsz = 64;
+		char receipt[bufsz];
+		mini_snprintf(receipt, bufsz, 
+			"invalid; hdr: %s  ftr: %s  BUF: %s", 
+			str_hdr, str_ftr, pkt);
+		usart_send_str(receipt);
+		usart_send_str(STR_NEWLINE);
+
+		return;
+	}
+
+	//unpack payload strings
+	char str_pwm_level[sizeof(pkt->pwm_level) + 1] = {}; 
+	char str_pwm_channel[sizeof(pkt->pwm_channel) + 1] = {}; 
+	strncat(str_pwm_level, pkt->pwm_level, 
+		sizeof(pkt->pwm_level));
+	strncat(str_pwm_channel, pkt->pwm_channel, 
+		sizeof(pkt->pwm_channel));
+	//parse text data
+	uint32_t pwm_level = myAtoi(str_pwm_level);
+	uint32_t pwm_channel = myAtoi(str_pwm_channel);
+
+	//commit payload data to HW
+	pwm_update_ch(pwm_level, pwm_channel);
+
+	//send acknowledgement string
+	const int bufsz = 64;
+	char receipt[bufsz];
+	mini_snprintf(receipt, bufsz, "CH: %u  PWR: %u", 
+		pwm_channel, pwm_level);
+	usart_send_str(receipt);
+	usart_send_str(STR_NEWLINE);
+}
+
+
 void sssp_receive_loop() {
 	char buffer_rx[sizeof(sssp_packet_pwm_t) + 1];
 	buffer_rx[sizeof(sssp_packet_pwm_t)] = '\0';
@@ -174,41 +225,10 @@ void sssp_receive_loop() {
 			//visually end user input with NL+CR
 			usart_send_str(STR_NEWLINE);
 			
-			//check for valid data packet
-			sssp_packet_pwm_t* pkt = (sssp_packet_pwm_t*) buffer_rx;
-			int cmp_hdr = strncmp(pkt->hdr, BOOKEND_HDR, sizeof(pkt->hdr));
-			int cmp_ftr = strncmp(pkt->ftr, BOOKEND_FTR, sizeof(pkt->ftr));
-			if(cmp_hdr != 0 || cmp_ftr != 0){
-				char str_hdr[sizeof(pkt->hdr) + 1] = {};
-				char str_ftr[sizeof(pkt->ftr) + 1] = {};
-				strncat(str_hdr, pkt->hdr, sizeof(pkt->hdr));
-				strncat(str_ftr, pkt->ftr, sizeof(pkt->ftr));
-
-				const int bufsz = 64;
-				char receipt[bufsz];
-				mini_snprintf(receipt, bufsz, 
-					"invalid; hdr: %s  ftr: %s  BUF: %s", 
-					str_hdr, str_ftr, buffer_rx);
-				usart_send_str(receipt);
-				usart_send_str(STR_NEWLINE);
-
-				continue;
-			}
-
-			uint32_t pwm_level = pkt->pwm_level[0];
-			uint32_t pwm_channel = pkt->pwm_channel[0];
-	
-			//commit payload data to HW
-			// pwm_update_ch(pkt->pwm_level, pkt->pwm_channel);
-	
-			//construct acknowledgement string
-			const int bufsz = 64;
-			char receipt[bufsz];
-			mini_snprintf(receipt, bufsz, "CH: %u \t PWR: %u \t BUF: %s", 
-				pwm_channel, pwm_level, buffer_rx);
-			usart_send_str(receipt);
-			usart_send_str(STR_NEWLINE);
-		} else {
+			//forward packet for further processing
+			sssp_process_packet_pwm((sssp_packet_pwm_t*) buffer_rx);
+		}  
+		if(char_is_alphanumeric(input_char)) {
 			//echo char, append to buffer if space
 			usart_send_blocking(USART1, input_char);
 			if(buffer_idx < sizeof(sssp_packet_pwm_t)){
@@ -227,7 +247,7 @@ int main(void) {
 
     for(int iter_blink = 0; iter_blink < 8; iter_blink++) {
 		gpio_toggle(PORT_LED, PIN_LED);
-		busywait_ms(200);
+		busywait_ms(25);
     }
     
     pwm_update_ch_pct(0.05, 1);
