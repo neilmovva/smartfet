@@ -39,7 +39,7 @@ const char* STR_NEWLINE 	= 	"\n\r";
 #define ENTER_CHAR 				0x0D
 
 static void inline busywait_ms(int ms) {
-	for (int i = 0; i < 6000 * ms; i++) {	/* Wait a bit. */
+	for (int i = 0; i < 6000 * ms; i++) {
 		__asm__("nop");
 	}
 }
@@ -174,22 +174,23 @@ static void pwm_update_ch_pct(float duty_cycle, int channel) {
 }
 
 void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
-	int cmp_hdr = strncmp(pkt->hdr, BOOKEND_HDR, sizeof(pkt->hdr));
-	int cmp_ftr = strncmp(pkt->ftr, BOOKEND_FTR, sizeof(pkt->ftr));
+	//unpack hdr and ftr strings
+	char str_hdr[sizeof(pkt->hdr) + 1] = {};
+	char str_ftr[sizeof(pkt->ftr) + 1] = {};
+	strncat(str_hdr, pkt->hdr, sizeof(pkt->hdr));
+	strncat(str_ftr, pkt->ftr, sizeof(pkt->ftr));
+	//check against protocol-defined magic data
+	int cmp_hdr = strncmp(str_hdr, BOOKEND_HDR, sizeof(pkt->hdr));
+	int cmp_ftr = strncmp(str_ftr, BOOKEND_FTR, sizeof(pkt->ftr));
 	if(cmp_hdr != 0 || cmp_ftr != 0){
-		char str_hdr[sizeof(pkt->hdr) + 1] = {};
-		char str_ftr[sizeof(pkt->ftr) + 1] = {};
-		strncat(str_hdr, pkt->hdr, sizeof(pkt->hdr));
-		strncat(str_ftr, pkt->ftr, sizeof(pkt->ftr));
-
+		//print error
 		const int bufsz = 64;
 		char receipt[bufsz];
 		mini_snprintf(receipt, bufsz, 
 			"invalid -- hdr: %s  ftr: %s  BUF: %s", 
 			str_hdr, str_ftr, pkt);
 		usart_print(receipt);
-
-		return;
+		return; //drop packet
 	}
 
 	//unpack payload strings
@@ -213,15 +214,12 @@ void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 		command_is_sane = false;
 	}
 
-
 	//if a valid command, commit payload data to HW
 	if(command_is_sane) {
 		pwm_update_ch(pwm_level, pwm_channel);
 		usart_print("committed");
 		usart_send_str("\t"); 	//indent sucessful commands
 	}
-		
-
 	
 	//send acknowledgement string
 	const int bufsz = 64;
@@ -240,6 +238,7 @@ void sssp_receive_loop() {
 	while(1) {
 		char input_char = usart_recv_blocking(USART1);
 
+		gpio_set(PORT_LED, PIN_LED);
 		if(char_is_alphanumeric(input_char)) {
 			//echo char, append to buffer if space available
 			usart_send_blocking(USART1, input_char);
@@ -255,7 +254,8 @@ void sssp_receive_loop() {
 			//clear buffered string and reset write position
 			memset(buffer_rx, '\0', sizeof(sssp_packet_pwm_t));
 			buffer_idx = 0;
-		}  
+		}
+		gpio_clear(PORT_LED, PIN_LED);
 	}
 }
 
