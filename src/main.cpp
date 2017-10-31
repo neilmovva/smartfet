@@ -185,7 +185,7 @@ void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 		const int bufsz = 64;
 		char receipt[bufsz];
 		mini_snprintf(receipt, bufsz, 
-			"invalid; hdr: %s  ftr: %s  BUF: %s", 
+			"invalid -- hdr: %s  ftr: %s  BUF: %s", 
 			str_hdr, str_ftr, pkt);
 		usart_print(receipt);
 
@@ -205,18 +205,22 @@ void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 	bool command_is_sane = true;
 
 	if(pwm_level > PERIOD_VALUE) {
-		usart_print("err: PWM value set too high, ignoring");
+		usart_print("error   -- PWM value set too high, ignoring");
 		command_is_sane = false;
 	} 
 	if (pwm_channel > NUM_PWM_CHANNELS) {
-		usart_print("err: target channel not found, ignoring");
+		usart_print("error   -- target channel not found, ignoring");
 		command_is_sane = false;
 	}
 
 
 	//if a valid command, commit payload data to HW
-	if(command_is_sane)
+	if(command_is_sane) {
 		pwm_update_ch(pwm_level, pwm_channel);
+		usart_print("committed");
+		usart_send_str("\t"); 	//indent sucessful commands
+	}
+		
 
 	
 	//send acknowledgement string
@@ -266,23 +270,8 @@ int main(void) {
 		gpio_toggle(PORT_LED, PIN_LED);
 		busywait_ms(25);
     }
-    
-    pwm_update_ch_pct(0.05, 1);
-	pwm_update_ch_pct(0.25, 2);
 	
 	sssp_receive_loop();
-
-	while (1) {
-		gpio_set(PORT_LED, PIN_LED);
-		busywait_ms(5);
-		gpio_clear(PORT_LED, PIN_LED);
-		busywait_ms(90);
-		gpio_set(PORT_LED, PIN_LED);
-		busywait_ms(5);
-		gpio_clear(PORT_LED, PIN_LED);
-
-		busywait_ms(1400);
-	}
 
 	return 0;
 }
