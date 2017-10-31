@@ -37,13 +37,6 @@ const char* BOOKEND_FTR  	=	"rsch";
 const char* STR_NEWLINE 	= 	"\n\r";
 #define ENTER_CHAR 				0x0D
 
-// //string based SSSP
-// #define SSSP_PLD_SIZE 			4
-// #define SSSP_HDR_SIZE 			8
-// #define SSSP_PKT_SIZE 			(SSSP_PLD_SIZE + SSSP_HDR_SIZE)
-// #define NUM_CHARS_PWMLEVEL 		3
-// #define NUM_CHARS_PWMCHANNEL 	1
-
 static void inline busywait_ms(int ms) {
 	for (int i = 0; i < 6000 * ms; i++) {	/* Wait a bit. */
 		__asm__("nop");
@@ -82,14 +75,14 @@ static void usart_setup(void) {
 	usart_set_parity(USART1, USART_PARITY_NONE);
 	usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
 
-	// USART1 GPIO setup: PA2 = TX, PA3 = RX
-    gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, 
-        GPIO2 | GPIO3);
-    gpio_set_output_options(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_25MHZ, 
-        GPIO2 | GPIO3);
+	// USART1 GPIO setup
+    gpio_mode_setup(PORT_UART, GPIO_MODE_AF, GPIO_PUPD_NONE, 
+        PIN_TX | PIN_RX);
+    gpio_set_output_options(PORT_UART, GPIO_OTYPE_PP, GPIO_OSPEED_25MHZ, 
+        PIN_TX | PIN_RX);
 	// from datasheet, AF1 is the USART function
-    gpio_set_af(GPIOA, GPIO_AF1, 
-        GPIO2 | GPIO3);
+    gpio_set_af(PORT_UART, GPIO_AF1, 
+        PIN_TX | PIN_RX);
 
 	usart_enable(USART1);
 }
@@ -223,10 +216,6 @@ void sssp_receive_loop() {
 				buffer_idx++;
 			}
 		}
-
-
-
-		
 	}
 }
 
