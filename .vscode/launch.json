@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "gdb",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "name": "PlatformIO Debugger",
+            "target": "/Users/neil/Desktop/neil-fs/dev-soft/smartfet/smartfet-3 a0/.pioenvs/f030f4p6/firmware.elf",
+            "gdbpath": "/Users/neil/.platformio/penv/bin/piodebuggdb",
+            "autorun": [ "source .pioinit" ]
+        }
+    ]
+}
