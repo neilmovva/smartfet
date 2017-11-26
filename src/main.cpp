@@ -20,7 +20,6 @@ const uint32_t MIN_PWM_VALUE =  (0);
 #define PIN_CH3     GPIO9
 #define NUM_PWM_CHANNELS 	3
 
-
 #define PORT_UART 	GPIOA
 #define PIN_TX 		GPIO2
 #define PIN_RX 		GPIO3
@@ -36,40 +35,24 @@ typedef sssp_packet_pwm sssp_packet_pwm_t;
 
 const char* BOOKEND_HDR 	=	"sail";
 const char* BOOKEND_FTR  	=	"rsch";
-const char* STR_NEWLINE 	= 	"\n\r";
+
 #define ENTER_CHAR 				0x0D
+
+
+//implemented in console.cpp
+void usart_send_str(const char* str);
+void usart_print(const char* str);
+void usart_newln();
+bool char_is_alphanumeric(const char c);
+int myAtoi(const char *str);
+
+
 
 static void inline busywait_ms(int ms) {
 	for (int i = 0; i < 6000 * ms; i++) {
 		__asm__("nop");
 	}
 }
-
-static void usart_send_str(const char* str) {
-	for(uint32_t idx_c = 0; idx_c < strlen(str); idx_c++ ){
-		usart_send_blocking(USART1, str[idx_c]);
-	}
-}
-
-static void usart_print(const char* str) {
-	usart_send_str(str);
-	usart_send_str(STR_NEWLINE);
-}
-
-static bool char_is_alphanumeric(char c) {
-	bool is_num = (c >= 48U) && (c <= 57U);
-	bool is_uppercase = (c >= 65U) && (c <= 90U);
-	bool is_lowercase = (c >= 97U) && (c <= 122U);
-	return (is_num || is_uppercase || is_lowercase);
-}
-
-static int myAtoi(const char *str) {
-    int res = 0; // Initialize result
-    for (int i = 0; str[i] != '\0'; ++i)
-        res = res*10 + str[i] - '0';
-    return res;
-}
-
 
 static void gpio_setup(void) {
 	/* Enable GPIOB clock. */
@@ -81,8 +64,8 @@ static void usart_setup(void) {
 	rcc_periph_clock_enable(RCC_USART1);
 	rcc_periph_clock_enable(RCC_GPIOA);
 
-	/* Setup USART1 parameters. for 8-N-1 at 38400 baud*/
-	usart_set_baudrate(USART1, 38400);
+	/* Setup USART1 parameters. for 8-N-1 at 115200 baud*/
+	usart_set_baudrate(USART1, 115200);
 	usart_set_databits(USART1, 8);
 	usart_set_stopbits(USART1, 1);
 	usart_set_mode(USART1, USART_MODE_TX_RX);
@@ -247,7 +230,7 @@ void sssp_receive_loop() {
 			}
 		} else if(input_char == ENTER_CHAR) {
 			//visually end user input with NL+CR
-			usart_send_str(STR_NEWLINE);
+			usart_newln();
 			//forward packet for further processing
 			sssp_process_packet_pwm((sssp_packet_pwm_t*) buffer_rx);
 			//clear buffered string and reset write position
