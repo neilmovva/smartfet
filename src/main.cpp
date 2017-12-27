@@ -36,6 +36,7 @@ typedef sssp_packet_pwm sssp_packet_pwm_t;
 const char* BOOKEND_HDR 	=	"sail";
 const char* BOOKEND_FTR  	=	"rsch";
 
+#define BAUDRATE 				38400
 #define ENTER_CHAR 				0x0D
 
 
@@ -65,7 +66,7 @@ static void usart_setup(void) {
 	rcc_periph_clock_enable(RCC_GPIOA);
 
 	/* Setup USART1 parameters. for 8-N-1 at 115200 baud*/
-	usart_set_baudrate(USART1, 115200);
+	usart_set_baudrate(USART1, BAUDRATE);
 	usart_set_databits(USART1, 8);
 	usart_set_stopbits(USART1, 1);
 	usart_set_mode(USART1, USART_MODE_TX_RX);
@@ -200,7 +201,7 @@ void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 	if(command_is_sane) {
 		pwm_update_ch(pwm_level, pwm_channel);
 		usart_print("committed");
-		usart_send_str("\t"); 	//indent sucessful commands
+		usart_send_str("    "); 	//indent sucessful commands
 	}
 	
 	//send acknowledgement string
@@ -217,27 +218,63 @@ void sssp_receive_loop() {
 	buffer_rx[sizeof(sssp_packet_pwm_t)] = '\0';
 	uint32_t buffer_idx = 0;
 
+	uint32_t state_current = 0;
 	while(1) {
 		char input_char = usart_recv_blocking(USART1);
+		
+		bool should_accept_char = false;
+		bool should_reset_state = false;
 
-		gpio_set(PORT_LED, PIN_LED);
 		if(char_is_alphanumeric(input_char)) {
-			//echo char, append to buffer if space available
+			//echo char
 			usart_send_blocking(USART1, input_char);
-			if(buffer_idx < sizeof(sssp_packet_pwm_t)){
-				buffer_rx[buffer_idx] = input_char;
-				buffer_idx++;
+
+			//watch for header sequence
+			if(state_current < strlen(BOOKEND_HDR)) {
+				char input_advance_state = BOOKEND_HDR[state_current];
+				if(input_char == input_advance_state) {
+					state_current++;
+					should_accept_char = true;
+				} else {
+					should_reset_state = true;
+				}
+			//after header, stream chars to end of buffer
+			} else if(state_current == strlen(BOOKEND_HDR)) {
+				//fill buffer
+				if(buffer_idx < sizeof(sssp_packet_pwm_t)) {
+					should_accept_char = true;
+				}
 			}
+
 		} else if(input_char == ENTER_CHAR) {
 			//visually end user input with NL+CR
 			usart_newln();
-			//forward packet for further processing
-			sssp_process_packet_pwm((sssp_packet_pwm_t*) buffer_rx);
-			//clear buffered string and reset write position
-			memset(buffer_rx, '\0', sizeof(sssp_packet_pwm_t));
-			buffer_idx = 0;
+			should_reset_state = true;
 		}
-		gpio_clear(PORT_LED, PIN_LED);
+
+		if(should_accept_char) {
+			gpio_set(PORT_LED, PIN_LED);
+			buffer_rx[buffer_idx] = input_char;
+			buffer_idx++;
+			//once buffer is full, ship pkt downstream
+			if(buffer_idx >= sizeof(sssp_packet_pwm_t)) {
+				sssp_packet_pwm_t pkt[1];
+				memcpy(pkt, buffer_rx, sizeof(sssp_packet_pwm_t));
+				usart_newln();
+				sssp_process_packet_pwm(pkt);
+				should_reset_state = true;
+			}
+		}
+
+		if(should_reset_state) {
+			gpio_clear(PORT_LED, PIN_LED);
+			//reset state and buffer
+			state_current = 0;
+			buffer_idx = 0;
+			memset(buffer_rx, 0, sizeof(sssp_packet_pwm_t));
+		}
+
+
 	}
 }
 
