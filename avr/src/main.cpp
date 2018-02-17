@@ -1,21 +1,34 @@
 #include <Arduino.h>
+#include <TimerOne.h>
 #include "mini-printf.h"
 
-const uint8_t MAX_PWM_LEVEL  =  100;
 #define DRV_INVERTED
+
+const uint16_t PWM_PERIOD 	  		=  100;
+const uint8_t  SSSP_MAX_PWR_LEVEL  	=  100;
+#ifdef DRV_INVERTED
+const uint16_t  REST_PWM_LEVEL 		=  1023;
+#else 
+const uint8_t REST_PWM_LEVEL =  0;
+#endif
 
 #define DDR_LED    	DDRC
 #define PORT_LED    PORTC
 #define PIN_LED_R   0
 
+#define NUM_CHANNELS 	3
+
 #define PORT_PWM_CH1    PORTB
 #define PORT_PWM_CH2    PORTB
 #define PIN_PWM_CH1     1
 #define PIN_PWM_CH2     2
+#define ARDPIN_PWM_CH1  9
+#define ARDPIN_PWM_CH2  10
 
+#define DDR_IO_CH3    	DDRD
 #define PORT_IO_CH3    	PORTD
 #define PIN_IO_CH3     	5
-#define NUM_CHANNELS 	3
+
 
 //helper macros
 #define SET(x,y) (x |= (1<<y))
@@ -59,6 +72,31 @@ uint8_t parse_pwm_ch(const char* str_pwmch) {
 	return result;
 }
 
+void pwm_update_ch(uint8_t power_level, uint8_t pwm_channel) {
+	uint16_t pwm_level = 10 * power_level;
+	#ifdef DRV_INVERTED
+	pwm_level = 1023 - pwm_level;
+	#endif
+
+	switch(pwm_channel) {
+		case 1:
+		Timer1.setPwmDuty(ARDPIN_PWM_CH1, pwm_level);
+		break;
+
+		case 2:
+		Timer1.setPwmDuty(ARDPIN_PWM_CH2, pwm_level);
+		break;
+
+		case 3:
+		if(power_level > 50) {
+			CLR(PORT_IO_CH3, PIN_IO_CH3);
+		} else {
+			SET(PORT_IO_CH3, PIN_IO_CH3);
+		}
+		break;
+	}
+}
+
 
 void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 	//unpack hdr and ftr strings
@@ -92,7 +130,7 @@ void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 	uint8_t pwm_channel = parse_pwm_ch(str_pwm_channel);
 	bool command_is_sane = true;
 
-	if(pwm_level > MAX_PWM_LEVEL) {
+	if(pwm_level > SSSP_MAX_PWR_LEVEL) {
  		Serial.println("error   -- PWM value set too high, ignoring");
 		command_is_sane = false;
 	} 
@@ -103,7 +141,7 @@ void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 
 	//if a valid command, commit payload data to HW
 	if(command_is_sane) {
-		// TODO pwm_update_ch(pwm_level, pwm_channel);
+		pwm_update_ch(pwm_level, pwm_channel);
 		Serial.println("committed");
 		Serial.print("    "); 	//indent sucessful commands
 	}
@@ -160,6 +198,19 @@ void setup() {
 
 	Serial.begin(BAUDRATE);
 	Serial.println("hello world");
+
+	Timer1.initialize(PWM_PERIOD);
+	Timer1.pwm(ARDPIN_PWM_CH1, REST_PWM_LEVEL); 
+	Timer1.pwm(ARDPIN_PWM_CH2, REST_PWM_LEVEL);
+
+	SET(DDR_IO_CH3, PIN_IO_CH3);
+	#ifdef DRV_INVERTED
+	SET(PORT_IO_CH3, PIN_IO_CH3);
+	#else 
+	CLR(PORT_IO_CH3, PIN_IO_CH3);
+	#endif
+	
+
 }
 
 void loop() {
