@@ -122,67 +122,30 @@ void sssp_receive_loop() {
 	buffer_rx[sizeof(sssp_packet_pwm_t)] = '\0';
 	uint8_t buffer_idx = 0;
 
-	uint8_t state_current = 0;
-	while(1) {
+	while(buffer_idx < sizeof(sssp_packet_pwm_t)) {
 		//blocking busywait for serial data
 		while(Serial.available() < 1) {};
 		
 		char input_char = Serial.read();
-		
-		bool should_accept_char = false;
-		bool should_reset_state = false;
 
 		if(char_is_alphanumeric(input_char)) {
 			//echo char
 			Serial.print(input_char);
-
-			//watch for header sequence
-			if(state_current < strlen(BOOKEND_HDR)) {
-				char input_advance_state = BOOKEND_HDR[state_current];
-				if(input_char == input_advance_state) {
-					state_current++;
-					should_accept_char = true;
-				} else {
-					should_reset_state = true;
-				}
-			//after header, stream chars to end of buffer
-			} else if(state_current == strlen(BOOKEND_HDR)) {
-				//fill buffer
-				if(buffer_idx < sizeof(sssp_packet_pwm_t)) {
-					should_accept_char = true;
-				}
-			}
+			//append to buffer
+			buffer_rx[buffer_idx] = input_char;
+			buffer_idx++;
 
 		} else if(input_char == ENTER_CHAR) {
 			//visually end user input with NL+CR
 			Serial.println();
-			should_reset_state = true;
+			
 		}
-
-		if(should_accept_char) {
-			SET(PORT_LED, PIN_LED_R);
-			buffer_rx[buffer_idx] = input_char;
-			buffer_idx++;
-			//once buffer is full, ship pkt downstream
-			if(buffer_idx >= sizeof(sssp_packet_pwm_t)) {
-				sssp_packet_pwm_t pkt[1];
-				memcpy(pkt, buffer_rx, sizeof(sssp_packet_pwm_t));
-				Serial.println();
-				sssp_process_packet_pwm(pkt);
-				should_reset_state = true;
-			}
-		}
-
-		if(should_reset_state) {
-			CLR(PORT_LED, PIN_LED_R);
-			//reset state and buffer
-			state_current = 0;
-			buffer_idx = 0;
-			memset(buffer_rx, 0, sizeof(sssp_packet_pwm_t));
-		}
-
-
 	}
+	//once buffer is full, ship pkt downstream
+	sssp_packet_pwm_t pkt[1];
+	memcpy(pkt, buffer_rx, sizeof(sssp_packet_pwm_t));
+	Serial.println();
+	sssp_process_packet_pwm(pkt);
 }
 
 void setup() {
