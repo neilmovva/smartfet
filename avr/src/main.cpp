@@ -3,9 +3,10 @@
 
 #define DRV_INVERTED
 
-const uint16_t PWM_PERIOD_CYCLES 	=  100;
+const uint16_t PWM_PERIOD_CYCLES 	=  500;
 const uint16_t PWM_VALUE_MAX 		=  PWM_PERIOD_CYCLES;
 const uint8_t  SSSP_MAX_PWR_LEVEL  	=  100;
+const uint8_t  PWR_TO_PWM_MULT 		=  5;
 #ifdef DRV_INVERTED
 const uint16_t  REST_PWMLEVEL		=  PWM_VALUE_MAX;
 #else 
@@ -74,22 +75,22 @@ uint8_t parse_channel(const char* str_pwmch) {
 }
 
 void pwm_update_ch(uint8_t powerlevel, uint8_t channel) {
-	uint8_t pwm_level = 10 * powerlevel;
+	uint16_t pwm_level = powerlevel * PWR_TO_PWM_MULT;
 	#ifdef DRV_INVERTED
 	pwm_level = PWM_VALUE_MAX - pwm_level;
 	#endif
 
 	switch(channel) {
 		case 1:
-		Timer1.setPwmDuty(ARDPIN_PWM_CH1, pwm_level);
+		OCR1A = pwm_level;
 		break;
 
 		case 2:
-		Timer1.setPwmDuty(ARDPIN_PWM_CH2, pwm_level);
+		OCR1B = pwm_level;
 		break;
 
 		case 3:
-		if(pwm_level > 50) {
+		if(powerlevel > 50) {
 			CLR(PORT_IO_CH3, PIN_IO_CH3);
 		} else {
 			SET(PORT_IO_CH3, PIN_IO_CH3);
@@ -190,8 +191,7 @@ void sssp_receive_loop() {
 
 void setup() {
 	SET(DDR_LED, PIN_LED_R);
-
-
+	// initialization pattern
 	const uint8_t blink_seconds = 3;
     for(uint8_t iter_blink = 0; iter_blink < (blink_seconds * 5); iter_blink++) {
 		SET(PORT_LED, PIN_LED_R);
@@ -204,9 +204,9 @@ void setup() {
 	Serial.println("hello world");
 
 	// Timer1 setup
-	//Normal mode, overflow at MAX
-	TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM11);     //WGM 14, FastPWM, TOP=ICR1
-	TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10); //1x prescaler == 16MHz tick
+	// WGM 14, FastPWM, TOP=ICR1, 1x prescaler == 16MHz tick
+	TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM11);     
+	TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10);
 	ICR1 = PWM_PERIOD_CYCLES;
 	TCNT1  = 0x0000;
 
@@ -221,8 +221,6 @@ void setup() {
 	#else 
 	CLR(PORT_IO_CH3, PIN_IO_CH3);
 	#endif
-	
-
 }
 
 void loop() {
