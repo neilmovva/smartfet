@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "mini-printf.h"
 
-#define DRV_INVERTED
+// #define DRV_INVERTED
 
 const uint16_t PWM_PERIOD_CYCLES 	=  500;
 const uint16_t PWM_VALUE_MAX 		=  PWM_PERIOD_CYCLES;
@@ -190,9 +190,23 @@ void sssp_receive_loop() {
 }
 
 void setup() {
+
+	SET(DDR_PWM, PIN_PWM_CH1);
+	SET(DDR_PWM, PIN_PWM_CH2);
+	SET(DDR_IO_CH3, PIN_IO_CH3);
+	#ifdef DRV_INVERTED
+	SET(PORT_PWM_CH1, PIN_PWM_CH1);
+	SET(PORT_PWM_CH2, PIN_PWM_CH2);
+	SET(PORT_IO_CH3, PIN_IO_CH3);
+	#else 
+	CLR(PORT_PWM_CH1, PIN_PWM_CH1);
+	CLR(PORT_PWM_CH2, PIN_PWM_CH2);
+	CLR(PORT_IO_CH3, PIN_IO_CH3);
+	#endif
+
 	SET(DDR_LED, PIN_LED_R);
 	// initialization pattern
-	const uint8_t blink_seconds = 3;
+	const uint8_t blink_seconds = 6;
     for(uint8_t iter_blink = 0; iter_blink < (blink_seconds * 5); iter_blink++) {
 		SET(PORT_LED, PIN_LED_R);
 		_delay_ms(100);
@@ -200,29 +214,26 @@ void setup() {
 		_delay_ms(100);
     }
 
-	Serial.begin(BAUDRATE);
-	Serial.println("hello world");
+	// Serial.begin(BAUDRATE);
+	// Serial.println("hello world");
 
 	// Timer1 setup
 	// WGM 14, FastPWM, TOP=ICR1, 1x prescaler == 16MHz tick
-	TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM11);     
-	TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10);
-	ICR1 = PWM_PERIOD_CYCLES;
-	TCNT1  = 0x0000;
+	// TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM11);     
+	// TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10);
+	// ICR1 = PWM_PERIOD_CYCLES;
+	// TCNT1  = 0x0000;
 
-	OCR1A = REST_PWMLEVEL;
-	OCR1B = REST_PWMLEVEL;
-	SET(DDR_PWM, PIN_PWM_CH1);
-	SET(DDR_PWM, PIN_PWM_CH2);
-
-	SET(DDR_IO_CH3, PIN_IO_CH3);
-	#ifdef DRV_INVERTED
-	SET(PORT_IO_CH3, PIN_IO_CH3);
-	#else 
-	CLR(PORT_IO_CH3, PIN_IO_CH3);
-	#endif
+	// OCR1A = REST_PWMLEVEL;
+	// OCR1B = REST_PWMLEVEL;
+	
 }
 
 void loop() {
-	sssp_receive_loop();
+	// sssp_receive_loop();
+	SET(PORT_IO_CH3, PIN_IO_CH3);
+	_delay_ms(1000);
+	CLR(PORT_IO_CH3, PIN_IO_CH3);
+	_delay_ms(1000);
+
 }
