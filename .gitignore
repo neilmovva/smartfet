@@ -3,3 +3,4 @@
 .vscode
 *travis*
 .vscode/c_cpp_properties.json
+fluxray-serial/credentials.h
