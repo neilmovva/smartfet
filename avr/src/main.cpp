@@ -214,7 +214,7 @@ void sssp_receive_loop() {
 		} else if(input_char == ENTER_CHAR) {
 			//visually end user input with NL+CR
 			Serial.println();
-			//optional: reset input buffer
+			//return to reset input buffer, align to cmd start
 			return;
 		}
 	}
@@ -288,7 +288,7 @@ void setup() {
 
 
 void loop() {
-	// sssp_receive_loop();
-	phase_test_loop();
+	sssp_receive_loop();
+	// phase_test_loop();
 
 }
