@@ -3,10 +3,10 @@
 
 // #define DRV_INVERTED
 
-const uint16_t PWM_PERIOD_CYCLES 	=  500;
+const uint16_t PWM_PERIOD_CYCLES 	=  300;
 const uint16_t PWM_VALUE_MAX 		=  PWM_PERIOD_CYCLES;
 const uint8_t  SSSP_MAX_PWR_LEVEL  	=  100;
-const uint8_t  PWR_TO_PWM_MULT 		=  5;
+const uint8_t  PWR_TO_PWM_MULT 		=  3;
 
 #ifdef DRV_INVERTED
 const uint16_t  REST_PWMLEVEL		=  PWM_VALUE_MAX;
