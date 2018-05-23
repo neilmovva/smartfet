@@ -35,9 +35,10 @@ extern "C" {
 #define CHAR_CR         "\x0D"
 #define BAUD_SMARTFET   38400
 
+#define GAMMA_FACTOR    1.5
+
 WiFiClientSecure client;
 Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
-const char* fingerprint = "26 96 1C 2A 51 07 FD 15 80 96 93 AE F7 32 CE B9 0D 01 55 C4";
 Adafruit_MQTT_Subscribe rgb_feed = 
   Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/srad-nm-fluxray108");
 
@@ -156,8 +157,11 @@ void loop() {
         strncpy(channel, &rgb_str[1 + 2*i], 2);
         channel[2] = '\0';
         //parse str as base16 (hex)
-        uint32_t val = strtoul(channel, NULL, 16);
-        uint32_t scaled_power = (val * 100) / 256;
+        uint32_t chval = strtoul(channel, NULL, 16);
+        float chval_norm = chval / 255.0;
+        float chval_gammacorr = pow(chval_norm, GAMMA_FACTOR);
+
+        uint32_t scaled_power = floor(chval_gammacorr * 100);
         rgb_dec[i] = scaled_power;
       }
   
