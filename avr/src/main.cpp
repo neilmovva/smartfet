@@ -281,8 +281,9 @@ void setup() {
 	ICR1 = PWM_PERIOD_CYCLES;
 	TCNT1  = 0x0000;
 
-	OCR1A = REST_PWMLEVEL;
-	OCR1B = REST_PWMLEVEL;
+	// turn off both PWM channels
+	pwm_update_ch(0, 1);
+	pwm_update_ch(0, 2);
 	
 }
 
