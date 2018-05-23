@@ -27,6 +27,7 @@ extern "C" {
 // #define AIO_SERVERPORT
 // #define AIO_USERNAME  
 // #define AIO_KEY    
+// #define AIO_SSL_FINGERPRINT
 
 // private details suppressed - define in credentials.h
 #include "credentials.h"
@@ -189,20 +190,22 @@ void verifyFingerprint() {
   #endif
 
   if (! client.connect(host, AIO_SERVERPORT)) {
-    Serial.println("Connection failed. Halting execution.");
-    while (1);
+    Serial.println("Connection failed. Restarting.");
+    ESP.restart();
   }
 
   #ifdef OUTPUT_DBG
-  Serial.print("Connected!");
+  Serial.println("Connected!");
   #endif
 
-  // if (client.verify(fingerprint, host)) {
-  //   Serial.println("Connection secure.");
-  // } else {
-  //   Serial.println("Connection insecure! Halting execution.");
-  //   while (1);
-  // }
+  if (client.verify(AIO_SSL_FINGERPRINT, host)) {
+    #ifdef OUTPUT_DBG
+    Serial.println("Connection secure.");
+    #endif
+  } else {
+    Serial.println("Connection insecure! Attempting restart.");
+    ESP.restart();
+  }
 
 }
 
