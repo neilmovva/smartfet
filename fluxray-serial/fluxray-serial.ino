@@ -1,8 +1,11 @@
-#define ESP32
-// #define ESP8266
+// #define ESP32
+#define ESP8266
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
+extern "C" {
+  #include <user_interface.h>
+}
 #else
 #include <WiFi.h>
 #endif
@@ -11,9 +14,7 @@
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
 
-// extern "C" {
-//   #include <user_interface.h>
-// }
+
 
 
 /************************* WiFi Access Point *********************************/
@@ -72,7 +73,7 @@ void update_flux(int pwr_level, int channel) {
 void print_mac(uint8_t* mac) {
   for(int i = 0; i < 5; i++) {
     Serial.print(mac[i], HEX);
-    Serial.print(:)
+    Serial.print(":");
   }
   Serial.println(mac[5], HEX);
 }
@@ -230,15 +231,15 @@ void MQTT_connect() {
 
     #ifdef OUTPUT_DBG
     Serial.println(mqtt.connectErrorString(retval));
-    Serial.println("Retrying MQTT connection in 1 seconds...");
+    Serial.println("Retrying MQTT...");
     #endif
 
     mqtt.disconnect();
     delay(1000);
     retries--;
     if (retries == 0) {
-      // halt execution, wait for WDT reset
-      while (1);
+      // restart ESP (via SDK, "clean" reset)
+      ESP.restart();
     }
   }
 
