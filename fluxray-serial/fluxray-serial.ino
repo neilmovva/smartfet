@@ -1,11 +1,19 @@
+#define ESP32
+// #define ESP8266
+
+#ifdef ESP8266
 #include <ESP8266WiFi.h>
+#else
+#include <WiFi.h>
+#endif
+
 #include <WiFiClientSecure.h>
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
 
-extern "C" {
-  #include <user_interface.h>
-}
+// extern "C" {
+//   #include <user_interface.h>
+// }
 
 
 /************************* WiFi Access Point *********************************/
@@ -61,6 +69,15 @@ void update_flux(int pwr_level, int channel) {
 
 }
 
+void print_mac(uint8_t* mac) {
+  for(int i = 0; i < 5; i++) {
+    Serial.print(mac[i], HEX);
+    Serial.print(:)
+  }
+  Serial.println(mac[5], HEX);
+}
+
+
 void setup() {
 
   #ifdef LED_INDICATOR
@@ -75,13 +92,18 @@ void setup() {
   Serial.begin(BAUD_SMARTFET);
   #endif
   
-
+  #ifdef ESP32
+  esp_base_mac_addr_set(WLAN_MACADDR);
+  #else 
   wifi_set_macaddr(STATION_IF, WLAN_MACADDR);
+  #endif
+
   WiFi.mode(WIFI_STA);
 
 
   #ifdef OUTPUT_DBG
   Serial.print("Setting MAC address to:  ");
+  print_mac(WLAN_MACADDR);
   Serial.print("\n\nConnecting to ");
   Serial.println(WLAN_SSID);
   #endif 
