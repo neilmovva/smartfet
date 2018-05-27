@@ -132,6 +132,11 @@ void setup() {
   #endif
 
   verifyFingerprint();
+
+  #ifdef OUTPUT_DBG
+  Serial.println("Subscribing to feed...");
+  #endif
+
   mqtt.subscribe(&rgb_feed);
 
 }
