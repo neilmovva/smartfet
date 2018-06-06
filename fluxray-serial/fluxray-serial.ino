@@ -1,8 +1,10 @@
+// Select deployment target
 // #define ESP32
 #define ESP8266
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
+// needed to set MAC address
 extern "C" {
   #include <user_interface.h>
 }
@@ -29,7 +31,7 @@ extern "C" {
 // #define AIO_KEY    
 // #define AIO_SSL_FINGERPRINT
 
-// private details suppressed - define in credentials.h
+// private details suppressed - define the above in credentials.h
 #include "credentials.h"
 
 #define CHAR_CR         "\x0D"
