@@ -1,12 +1,19 @@
+// Smartfet Firmware, written for ATmega328P.
+// nmovva 2018
+
 #include <Arduino.h>
 #include "mini-printf.h"
 
+//helper macros
+#define SET(x,y) (x |= (1<<y))
+#define CLR(x,y) (x &= (~(1<<y)))
+
 // #define DRV_INVERTED
 
-const uint16_t PWM_PERIOD_CYCLES 	=  300;
+const uint16_t PWM_PERIOD_CYCLES 	=  100;
 const uint16_t PWM_VALUE_MAX 		=  PWM_PERIOD_CYCLES;
 const uint8_t  SSSP_MAX_PWR_LEVEL  	=  100;
-const uint8_t  PWR_TO_PWM_MULT 		=  3;
+const uint8_t  PWR_TO_PWM_MULT 		=  1;
 
 #ifdef DRV_INVERTED
 const uint16_t  REST_PWMLEVEL		=  PWM_VALUE_MAX;
@@ -18,24 +25,22 @@ const uint8_t REST_PWMLEVEL =  0;
 #define PORT_LED    PORTC
 #define PIN_LED_R   0
 
-#define NUM_CHANNELS 	3
+#define NUM_CHANNELS 	2
 
 #define DDR_PWM 		DDRB
 #define PORT_PWM_CH1    PORTB
 #define PORT_PWM_CH2    PORTB
 #define PIN_PWM_CH1     1
 #define PIN_PWM_CH2     2
-#define ARDPIN_PWM_CH1  9
-#define ARDPIN_PWM_CH2  10
+// #define ARDPIN_PWM_CH1  9
+// #define ARDPIN_PWM_CH2  10
 
-#define DDR_IO_CH3    	DDRD
-#define PORT_IO_CH3    	PORTD
-#define PIN_IO_CH3     	5
+// #define DDR_IO_CH3    	DDRD
+// #define PORT_IO_CH3    	PORTD
+// #define PIN_IO_CH3     	5
 
 
-//helper macros
-#define SET(x,y) (x |= (1<<y))
-#define CLR(x,y) (x &= (~(1<<y)))
+
 
 //SSSP = Sail Simple Serial Protocol
 struct sssp_packet_pwm {
@@ -126,13 +131,13 @@ void pwm_update_ch(uint8_t powerlevel, uint8_t channel) {
 		OCR1B = pwm_level;
 		break;
 
-		case 3:
-		if(powerlevel > 50) {
-			CLR(PORT_IO_CH3, PIN_IO_CH3);
-		} else {
-			SET(PORT_IO_CH3, PIN_IO_CH3);
-		}
-		break;
+		// case 3:
+		// if(powerlevel > 50) {
+		// 	CLR(PORT_IO_CH3, PIN_IO_CH3);
+		// } else {
+		// 	SET(PORT_IO_CH3, PIN_IO_CH3);
+		// }
+		// break;
 	}
 }
 
@@ -229,7 +234,7 @@ void sssp_receive_loop() {
 
 void phase_test_loop() {
 	//phase1
-	SET(PORT_IO_CH3, PIN_IO_CH3);
+	// SET(PORT_IO_CH3, PIN_IO_CH3);
 	pwm_update_ch(50, 1);
 	pwm_update_ch(0, 2);
 	//endphase
@@ -238,9 +243,9 @@ void phase_test_loop() {
 
 
 	//phase2
-	CLR(PORT_IO_CH3, PIN_IO_CH3);
+	// CLR(PORT_IO_CH3, PIN_IO_CH3);
 	pwm_update_ch(0, 1);
-	pwm_update_ch(5, 2);
+	pwm_update_ch(25, 2);
 	//endphase
 	CLR(PORT_LED, PIN_LED_R);
 	_delay_ms(5000);
@@ -250,7 +255,7 @@ void setup() {
 	// assert signal pins immediately
 	SET(DDR_PWM, PIN_PWM_CH1);
 	SET(DDR_PWM, PIN_PWM_CH2);
-	SET(DDR_IO_CH3, PIN_IO_CH3);
+	// SET(DDR_IO_CH3, PIN_IO_CH3);
 
 	#ifdef DRV_INVERTED
 	SET(PORT_PWM_CH1, PIN_PWM_CH1);
@@ -259,7 +264,7 @@ void setup() {
 	#else 
 	CLR(PORT_PWM_CH1, PIN_PWM_CH1);
 	CLR(PORT_PWM_CH2, PIN_PWM_CH2);
-	CLR(PORT_IO_CH3, PIN_IO_CH3);
+	// CLR(PORT_IO_CH3, PIN_IO_CH3);
 	#endif
 
 	// flash initialization pattern
@@ -290,7 +295,7 @@ void setup() {
 
 
 void loop() {
-	sssp_receive_loop();
-	// phase_test_loop();
+	// sssp_receive_loop();
+	phase_test_loop();
 
 }
