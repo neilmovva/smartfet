@@ -21,9 +21,9 @@ const uint16_t  REST_PWMLEVEL		=  PWM_VALUE_MAX;
 const uint8_t REST_PWMLEVEL =  0;
 #endif
 
-#define DDR_LED    	DDRC
-#define PORT_LED    PORTC
-#define PIN_LED_R   0
+#define DDR_LED    	DDRD
+#define PORT_LED    PORTD
+#define PIN_LED_R   4
 
 #define NUM_CHANNELS 	2
 
@@ -130,14 +130,6 @@ void pwm_update_ch(uint8_t powerlevel, uint8_t channel) {
 		case 2:
 		OCR1B = pwm_level;
 		break;
-
-		// case 3:
-		// if(powerlevel > 50) {
-		// 	CLR(PORT_IO_CH3, PIN_IO_CH3);
-		// } else {
-		// 	SET(PORT_IO_CH3, PIN_IO_CH3);
-		// }
-		// break;
 	}
 }
 
@@ -251,31 +243,6 @@ void phase_test_loop() {
 	_delay_ms(5000);
 }
 
-void bbdrv_test_loop() {
-
-	const int tdrv_on = 1;
-	const int tdrv_period = 5;
-	const uint32_t time_per_phase_ms = 3000;
-
-	SET(PORT_LED, PIN_LED_R);
-	//phase1
-	const uint32_t ticks_total = (time_per_phase_ms * 1000) / tdrv_period;
-	for(uint32_t ticks = 0; ticks < ticks_total; ticks++) {
-		SET(PORT_IO_CH3, PIN_IO_CH3);
-		_delay_us(tdrv_on);
-		CLR(PORT_IO_CH3, PIN_IO_CH3);
-		_delay_us(tdrv_period - tdrv_on);
-	}
-	//endphase
-	
-
-	CLR(PORT_LED, PIN_LED_R);
-	//phase2
-	CLR(PORT_IO_CH3, PIN_IO_CH3);
-	//endphase
-	_delay_ms(time_per_phase_ms/2);
-}
-
 void setup() {
 	// assert signal pins immediately
 	SET(DDR_PWM, PIN_PWM_CH1);
@@ -321,6 +288,5 @@ void setup() {
 
 void loop() {
 	// sssp_receive_loop();
-	// phase_test_loop();
-	bbdrv_test_loop();
+	phase_test_loop();
 }
