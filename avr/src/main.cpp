@@ -4,16 +4,26 @@
 #include <Arduino.h>
 #include "mini-printf.h"
 
+#include "sinetable.h"
+
 //helper macros
 #define SET(x,y) (x |= (1<<y))
 #define CLR(x,y) (x &= (~(1<<y)))
 
+inline int MAX(int a, int b) {
+    if (a > b)
+        return a;
+    return b;
+}
+
+
+
 // #define DRV_INVERTED
 
-const uint16_t PWM_PERIOD_CYCLES 	=  100;
+const uint16_t PWM_PERIOD_CYCLES 	=  255;
 const uint16_t PWM_VALUE_MAX 		=  PWM_PERIOD_CYCLES;
 const uint8_t  SSSP_MAX_PWR_LEVEL  	=  100;
-const uint8_t  PWR_TO_PWM_MULT 		=  1;
+const uint8_t  PWR_TO_PWM_MULT 		=  2;
 
 #ifdef DRV_INVERTED
 const uint16_t  REST_PWMLEVEL		=  PWM_VALUE_MAX;
@@ -32,14 +42,6 @@ const uint8_t REST_PWMLEVEL =  0;
 #define PORT_PWM_CH2    PORTB
 #define PIN_PWM_CH1     1
 #define PIN_PWM_CH2     2
-// #define ARDPIN_PWM_CH1  9
-// #define ARDPIN_PWM_CH2  10
-
-// #define DDR_IO_CH3    	DDRD
-// #define PORT_IO_CH3    	PORTD
-// #define PIN_IO_CH3     	5
-
-
 
 
 //SSSP = Sail Simple Serial Protocol
@@ -106,6 +108,28 @@ void pwm_ch_enable(uint8_t channel) {
 		case 2:
 		SET(TCCR1A, COM1B1);
 		OCR1B = 0;
+		break;
+	}
+}
+
+void pwm_update_raw8(uint8_t pwm_level, uint8_t channel) {
+	#ifdef DRV_INVERTED
+	pwm_level = PWM_VALUE_MAX - pwm_level;
+	#endif
+
+	if(pwm_level == 0) {
+		pwm_ch_disable(channel);
+	} else {
+		pwm_ch_enable(channel);
+	}
+
+	switch(channel) {
+		case 1:
+		OCR1A = pwm_level;
+		break;
+
+		case 2:
+		OCR1B = pwm_level;
 		break;
 	}
 }
@@ -243,6 +267,77 @@ void phase_test_loop() {
 	_delay_ms(5000);
 }
 
+void testloop() {
+	uint8_t primary = 200;
+	uint8_t secondary = 50;
+
+	//phase1
+	pwm_update_raw8(primary, 1);
+	pwm_update_raw8(secondary, 2);
+	//endphase
+	SET(PORT_LED, PIN_LED_R);
+	_delay_ms(5000);
+
+
+	//phase2
+	pwm_update_ch(secondary, 1);
+	pwm_update_ch(primary, 2);
+	//endphase
+	CLR(PORT_LED, PIN_LED_R);
+	_delay_ms(5000);
+}
+
+void triangle() {
+
+	for(uint16_t step = 0; step < PWM_VALUE_MAX; step++) {
+		uint8_t pwr_a = step;
+		uint8_t pwr_b = (step + 127) % PWM_VALUE_MAX;
+
+		pwm_update_raw8(pwr_a, 1);
+		pwm_update_raw8(pwr_b, 2);
+		_delay_ms(20);
+	}
+
+	for(uint16_t step = PWM_VALUE_MAX; step > 0 ; step--) {
+		uint8_t pwr_a = step;
+		uint8_t pwr_b = (step - 127) % PWM_VALUE_MAX;
+
+		pwm_update_raw8(pwr_a, 1);
+		pwm_update_raw8(pwr_b, 2);
+		_delay_ms(20);
+	}
+
+	// turn off both channels
+	pwm_update_ch(0, 1);
+	pwm_update_ch(0, 2);
+}
+
+
+void sinewave() {
+	const uint8_t* sinetable = sin_a255_p512;
+	uint16_t table_pts = 512;
+	uint16_t offset_a = 0;
+	uint16_t offset_b = 250;
+
+	for(uint16_t theta = 0; theta < table_pts; theta++) {
+		uint16_t idx_a = (theta + offset_a) % table_pts;
+		uint16_t idx_b = (theta + offset_b) % table_pts;
+
+		uint8_t pwr_a = MAX(sinetable[idx_a], 5);
+		uint8_t pwr_b = MAX(sinetable[idx_b], 5);
+
+		pwm_update_raw8(pwr_a, 1);
+		pwm_update_raw8(pwr_b, 2);
+
+		_delay_ms(20);
+	}
+
+	// turn off both channels
+	pwm_update_ch(0, 1);
+	pwm_update_ch(0, 2);
+}
+
+
 void setup() {
 	// assert signal pins immediately
 	SET(DDR_PWM, PIN_PWM_CH1);
@@ -288,5 +383,9 @@ void setup() {
 
 void loop() {
 	// sssp_receive_loop();
-	phase_test_loop();
+
+	// phase_test_loop();
+	sinewave();
+	// triangle();
+	// testloop();
 }
