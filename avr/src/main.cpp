@@ -31,9 +31,9 @@ const uint16_t  REST_PWMLEVEL		=  PWM_VALUE_MAX;
 const uint8_t REST_PWMLEVEL =  0;
 #endif
 
-#define DDR_LED    	DDRD
-#define PORT_LED    PORTD
-#define PIN_LED_R   4
+#define DDR_LED    	DDRC
+#define PORT_LED    PORTC
+#define PIN_LED_R   0
 
 #define NUM_CHANNELS 	2
 
@@ -269,7 +269,7 @@ void phase_test_loop() {
 
 void testloop() {
 	uint8_t primary = 200;
-	uint8_t secondary = 50;
+	uint8_t secondary = 200;
 
 	//phase1
 	pwm_update_raw8(primary, 1);
@@ -279,12 +279,12 @@ void testloop() {
 	_delay_ms(5000);
 
 
-	//phase2
-	pwm_update_ch(secondary, 1);
-	pwm_update_ch(primary, 2);
-	//endphase
-	CLR(PORT_LED, PIN_LED_R);
-	_delay_ms(5000);
+	// //phase2
+	// pwm_update_ch(secondary, 1);
+	// pwm_update_ch(primary, 2);
+	// //endphase
+	// CLR(PORT_LED, PIN_LED_R);
+	// _delay_ms(5000);
 }
 
 void triangle() {
@@ -382,10 +382,11 @@ void setup() {
 
 
 void loop() {
+
 	// sssp_receive_loop();
 
 	// phase_test_loop();
-	sinewave();
+	// sinewave();
 	// triangle();
-	// testloop();
+	testloop();
 }
