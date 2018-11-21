@@ -5,9 +5,11 @@
 #include "mini-printf.h"
 
 #include "sinetable.h"
+#define SINETABLE sin_a255_p4096
 
 //helper macros
 #define SET(x,y) (x |= (1<<y))
+#define FLP(x,y) (x ^= (1<<y))
 #define CLR(x,y) (x &= (~(1<<y)))
 
 inline int MAX(int a, int b) {
@@ -314,22 +316,23 @@ void triangle() {
 
 
 void sinewave() {
-	const uint8_t* sinetable = sin_a255_p512;
-	uint16_t table_pts = 512;
-	uint16_t offset_a = 0;
-	uint16_t offset_b = 250;
+	FLP(PORT_LED, PIN_LED_R);
+
+	const uint16_t table_pts = sizeof(SINETABLE);
+	const uint16_t offset_a = 0;
+	const uint16_t offset_b = 0.5 * table_pts;
 
 	for(uint16_t theta = 0; theta < table_pts; theta++) {
 		uint16_t idx_a = (theta + offset_a) % table_pts;
 		uint16_t idx_b = (theta + offset_b) % table_pts;
 
-		uint8_t pwr_a = MAX(sinetable[idx_a], 5);
-		uint8_t pwr_b = MAX(sinetable[idx_b], 5);
+		uint8_t pwr_a = MAX(pgm_read_byte(&SINETABLE[idx_a]), 5);
+		uint8_t pwr_b = MAX(pgm_read_byte(&SINETABLE[idx_b]), 5);
 
 		pwm_update_raw8(pwr_a, 1);
 		pwm_update_raw8(pwr_b, 2);
 
-		_delay_ms(20);
+		_delay_ms(16);
 	}
 
 	// turn off both channels
@@ -386,7 +389,7 @@ void loop() {
 	// sssp_receive_loop();
 
 	// phase_test_loop();
-	// sinewave();
+	sinewave();
 	// triangle();
-	testloop();
+	// testloop();
 }
