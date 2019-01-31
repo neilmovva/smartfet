@@ -4,3 +4,4 @@
 *travis*
 .vscode/c_cpp_properties.json
 fluxray-serial/credentials.h
+credentials.h

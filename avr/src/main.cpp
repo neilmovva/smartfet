@@ -33,7 +33,7 @@ const uint16_t  REST_PWMLEVEL		=  PWM_VALUE_MAX;
 const uint8_t REST_PWMLEVEL =  0;
 #endif
 
-#define REVB
+// #define REVB
 
 #ifdef REVB
 #define DDR_LED    	DDRD
@@ -397,7 +397,7 @@ void loop() {
 	// sssp_receive_loop();
 
 	// phase_test_loop();
-	// sinewave();
+	sinewave();
 	// triangle();
-	testloop();
+	// testloop();
 }
