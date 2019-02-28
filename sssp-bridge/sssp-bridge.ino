@@ -28,9 +28,9 @@ PubSubClient client(net);
 #define BAUD_SMARTFET   38400
 #define PAYLOAD_SIZE    7
 
-#define GAMMA_FACTOR    1.5
+#define GAMMA_FACTOR    2
 
-#define OUTPUT_DBG
+// #define OUTPUT_DBG
 // #define OUTPUT_SER1 
 
 
@@ -102,22 +102,11 @@ void setup() {
 
   // verify_cert();
 
-  // client.begin(AIO_SERVER, AIO_SERVERPORT, net);
-  // client.onMessage(process_message);
   client.setServer(AIO_SERVER, AIO_SERVERPORT);
   client.setCallback(parse_payload);
   MQTT_connect();
 
 }
-
-
-// void process_message(String &topic, String &payload) {
-//   // parse command string into numeric power levels
-//   Serial.println(payload);
-
-//   byte* rgb_str = payload.c_str();
-//   parse_payload(topic.c_str(), rgb_str, strlen(rgb_str));
-// }
 
 
 void parse_payload(const char* topic, byte* payload, unsigned int length) {
@@ -128,8 +117,6 @@ void parse_payload(const char* topic, byte* payload, unsigned int length) {
   char rgb_str[PAYLOAD_SIZE + 1];
   memcpy(rgb_str, payload, PAYLOAD_SIZE);
   rgb_str[PAYLOAD_SIZE] = '\0';
-
-  Serial.println(rgb_str);
 
   uint32_t rgb_dec[3];
   for(int i = 0; i < 3; i++) {
@@ -148,17 +135,15 @@ void parse_payload(const char* topic, byte* payload, unsigned int length) {
 
   #ifdef OUTPUT_DBG
   // receipt string
-  Serial.printf("WW: %d   NW: %d   CW: %d\n", rgb_dec[0], rgb_dec[1], rgb_dec[2]);
+  Serial.printf("R: %d   G: %d   B: %d\n", rgb_dec[0], rgb_dec[1], rgb_dec[2]);
   #endif
 
-  // write HSF control to CH3
-  uint32_t total_power = rgb_dec[0] + rgb_dec[2];
-  bool needs_active_cooling = (total_power > 30);
-  // update_flux((needs_active_cooling ? 100 : 0), 3);
-
-  // write color intensities to power channels
+  // write color intensities to power channels, RGB order
   update_flux(rgb_dec[0], 1);
-  update_flux(rgb_dec[2], 2);
+  update_flux(rgb_dec[1], 2);
+  update_flux(rgb_dec[2], 3);
+  
+
 }
 
 void loop() {
@@ -177,7 +162,6 @@ void update_flux(int pwr_level, int channel) {
     #ifdef OUTPUT_DBG
     Serial.println("pwr level out of range");
     #endif
-
     return;
   }
 
@@ -210,11 +194,12 @@ void MQTT_connect() {
 
   // Loop until we're reconnected
   while (!client.connected()) {
+    #ifdef OUTPUT_DBG
     Serial.print("Attempting MQTT connection...");
+    #endif
 
     // Attempt to connect
     if (client.connect(CLIENT_ID, AIO_USERNAME, AIO_KEY) ) {
-      Serial.println("connected");
 
       client.subscribe(TOPIC);
     } else {

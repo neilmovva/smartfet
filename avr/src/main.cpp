@@ -18,11 +18,9 @@ inline int MAX(int a, int b) {
     return b;
 }
 
-
-
 // #define DRV_INVERTED
 
-const uint16_t PWM_PERIOD_CYCLES 	=  255;
+const uint16_t PWM_PERIOD_CYCLES 	=  200;
 const uint16_t PWM_VALUE_MAX 		=  PWM_PERIOD_CYCLES;
 const uint8_t  SSSP_MAX_PWR_LEVEL  	=  100;
 const uint8_t  PWR_TO_PWM_MULT 		=  2;
@@ -45,13 +43,18 @@ const uint8_t REST_PWMLEVEL =  0;
 #define PIN_LED_R   0
 #endif
 
-#define NUM_CHANNELS 	2
+#define NUM_CHANNELS 	3
 
 #define DDR_PWM 		DDRB
 #define PORT_PWM_CH1    PORTB
 #define PORT_PWM_CH2    PORTB
 #define PIN_PWM_CH1     1
 #define PIN_PWM_CH2     2
+
+#define DDR_PWM_CH3 	DDRD
+#define PORT_PWM_CH3    PORTD
+#define PIN_PWM_CH3     5
+
 
 
 //SSSP = Sail Simple Serial Protocol
@@ -87,7 +90,6 @@ uint8_t parse_powerlevel(const char* str_pwmlevel) {
 
 uint8_t parse_channel(const char* str_pwmch) {
 	uint8_t d_one = str_pwmch[0] - '0';
-
 	uint8_t result = d_one*1;
 	return result;
 }
@@ -104,6 +106,11 @@ void pwm_ch_disable(uint8_t channel) {
 		CLR(TCCR1A, COM1B1);
 		OCR1B = 0;
 		break;
+
+		case 3:
+		CLR(TCCR0A, COM0B1);
+		OCR0B = 0;
+		break;
 	}
 }
 
@@ -119,6 +126,11 @@ void pwm_ch_enable(uint8_t channel) {
 		SET(TCCR1A, COM1B1);
 		OCR1B = 0;
 		break;
+
+		case 3:
+		SET(TCCR0A, COM0B1);
+		OCR0B = 0;
+		break;
 	}
 }
 
@@ -129,9 +141,9 @@ void pwm_update_raw8(uint8_t pwm_level, uint8_t channel) {
 
 	if(pwm_level == 0) {
 		pwm_ch_disable(channel);
-	} else {
-		pwm_ch_enable(channel);
-	}
+		return;
+	} 
+	pwm_ch_enable(channel);
 
 	switch(channel) {
 		case 1:
@@ -140,33 +152,21 @@ void pwm_update_raw8(uint8_t pwm_level, uint8_t channel) {
 
 		case 2:
 		OCR1B = pwm_level;
+		break;
+
+		case 3:
+		OCR0B = pwm_level;
 		break;
 	}
 }
 
 void pwm_update_ch(uint8_t powerlevel, uint8_t channel) {
 	uint16_t pwm_level = powerlevel * PWR_TO_PWM_MULT;
-	#ifdef DRV_INVERTED
-	pwm_level = PWM_VALUE_MAX - pwm_level;
-	#endif
-
-	if(powerlevel == 0) {
-		pwm_ch_disable(channel);
-	} else {
-		pwm_ch_enable(channel);
+	if(pwm_level > PWM_VALUE_MAX) {
+		pwm_level = PWM_VALUE_MAX;
 	}
-
-	switch(channel) {
-		case 1:
-		OCR1A = pwm_level;
-		break;
-
-		case 2:
-		OCR1B = pwm_level;
-		break;
-	}
+	pwm_update_raw8(pwm_level, channel);
 }
-
 
 void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 	//unpack hdr and ftr strings
@@ -260,42 +260,27 @@ void sssp_receive_loop() {
 
 void phase_test_loop() {
 	//phase1
-	// SET(PORT_IO_CH3, PIN_IO_CH3);
-	pwm_update_ch(50, 1);
-	pwm_update_ch(0, 2);
+	pwm_update_ch(0, 1);
+	pwm_update_ch(2, 2);
+	pwm_update_ch(5, 3);
 	//endphase
-	SET(PORT_LED, PIN_LED_R);
-	_delay_ms(5000);
-
+	_delay_ms(2000);
 
 	//phase2
-	// CLR(PORT_IO_CH3, PIN_IO_CH3);
-	pwm_update_ch(0, 1);
-	pwm_update_ch(25, 2);
+	pwm_update_ch(2, 1);
+	pwm_update_ch(5, 2);
+	pwm_update_ch(0, 3);
 	//endphase
-	CLR(PORT_LED, PIN_LED_R);
-	_delay_ms(5000);
+	_delay_ms(2000);
+
+	//phase3
+	pwm_update_ch(5, 1);
+	pwm_update_ch(0, 2);
+	pwm_update_ch(2, 3);
+	//endphase
+	_delay_ms(2000);
 }
 
-void testloop() {
-	uint8_t primary = 250;
-	uint8_t secondary = 250;
-
-	//phase1
-	pwm_update_raw8(primary, 1);
-	pwm_update_raw8(secondary, 2);
-	//endphase
-	SET(PORT_LED, PIN_LED_R);
-	_delay_ms(5000);
-
-
-	// //phase2
-	// pwm_update_ch(secondary, 1);
-	// pwm_update_ch(primary, 2);
-	// //endphase
-	// CLR(PORT_LED, PIN_LED_R);
-	// _delay_ms(5000);
-}
 
 void triangle() {
 
@@ -322,30 +307,25 @@ void triangle() {
 	pwm_update_ch(0, 2);
 }
 
-
-void sinewave() {
+void sinewave_allphase() {
 	FLP(PORT_LED, PIN_LED_R);
 
 	const uint16_t table_pts = sizeof(SINETABLE);
-	const uint16_t offset_a = 0;
-	const uint16_t offset_b = 0.5 * table_pts;
+	const uint16_t phase_stride = table_pts / NUM_CHANNELS;
 
 	for(uint16_t theta = 0; theta < table_pts; theta++) {
-		uint16_t idx_a = (theta + offset_a) % table_pts;
-		uint16_t idx_b = (theta + offset_b) % table_pts;
-
-		uint8_t pwr_a = MAX(pgm_read_byte(&SINETABLE[idx_a]), 5);
-		uint8_t pwr_b = MAX(pgm_read_byte(&SINETABLE[idx_b]), 5);
-
-		pwm_update_raw8(pwr_a, 1);
-		pwm_update_raw8(pwr_b, 2);
-
-		_delay_ms(16);
+		for(uint8_t idx_ch = 0; idx_ch < NUM_CHANNELS; idx_ch++) {
+			uint16_t table_idx = (theta + idx_ch * phase_stride) % table_pts;
+			uint8_t pwr_ch =  MAX(pgm_read_byte(&SINETABLE[table_idx]), 5);
+			pwm_update_raw8(pwr_ch, idx_ch + 1);
+		}
+		_delay_ms(1);
 	}
 
-	// turn off both channels
+	// turn off all channels
 	pwm_update_ch(0, 1);
 	pwm_update_ch(0, 2);
+	pwm_update_ch(0, 3);
 }
 
 
@@ -353,7 +333,7 @@ void setup() {
 	// assert signal pins immediately
 	SET(DDR_PWM, PIN_PWM_CH1);
 	SET(DDR_PWM, PIN_PWM_CH2);
-	// SET(DDR_IO_CH3, PIN_IO_CH3);
+	SET(DDR_PWM_CH3, PIN_PWM_CH3);
 
 	#ifdef DRV_INVERTED
 	SET(PORT_PWM_CH1, PIN_PWM_CH1);
@@ -362,7 +342,7 @@ void setup() {
 	#else 
 	CLR(PORT_PWM_CH1, PIN_PWM_CH1);
 	CLR(PORT_PWM_CH2, PIN_PWM_CH2);
-	// CLR(PORT_IO_CH3, PIN_IO_CH3);
+	CLR(PORT_PWM_CH3, PIN_PWM_CH3);
 	#endif
 
 	// flash initialization pattern
@@ -378,26 +358,32 @@ void setup() {
 	Serial.begin(BAUDRATE);
 	Serial.println("hello world");
 
-	// Timer1 setup
-	// WGM 14, FastPWM, TOP=ICR1, 1x prescaler == 16MHz tick
+	// Timer1 setup (CH A and B)
+	// WGM 14, FastPWM, TOP=ICR1, 1x prescaler
 	TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM11);     
 	TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10);
 	ICR1 = PWM_PERIOD_CYCLES;
 	TCNT1  = 0x0000;
 
-	// turn off both PWM channels
+	// Timer0 setup (CH C)
+	// WGM 07, FastPWM, TOP=OCRA, 1x prescaler, out OC0B
+	TCCR0A = _BV(COM0B1) | _BV(WGM00) | _BV(WGM01);     
+	TCCR0B = _BV(WGM02) | _BV(CS00);
+	OCR0A = PWM_PERIOD_CYCLES;
+	TCNT0  = 0x00;
+
+	// turn off all PWM channels
 	pwm_update_ch(0, 1);
 	pwm_update_ch(0, 2);
+	pwm_update_ch(0, 3);
 	
 }
 
 
 void loop() {
-
-	// sssp_receive_loop();
+	sssp_receive_loop();
 
 	// phase_test_loop();
-	sinewave();
+	// sinewave_allphase();
 	// triangle();
-	// testloop();
 }
