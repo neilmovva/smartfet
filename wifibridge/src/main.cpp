@@ -36,6 +36,7 @@ PubSubClient client(net);
 
 void MQTT_connect();
 void verifyFingerprint();
+void parse_payload(const char* topic, byte* payload, unsigned int length);
 void update_flux(int pwr_level, int channel);
 
 void print_mac(uint8_t* mac) {

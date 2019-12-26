@@ -228,25 +228,11 @@ void sssp_receive_loop() {
 
 void phase_test_loop() {
 	//phase1
-	pwm_update_ch(0, 1);
-	pwm_update_ch(2, 2);
-	pwm_update_ch(5, 3);
+	pwm_update_ch(10, 1);
+	pwm_update_ch(60, 2);
 	//endphase
-	_delay_ms(2000);
+	_delay_ms(10000);
 
-	//phase2
-	pwm_update_ch(2, 1);
-	pwm_update_ch(5, 2);
-	pwm_update_ch(0, 3);
-	//endphase
-	_delay_ms(2000);
-
-	//phase3
-	pwm_update_ch(5, 1);
-	pwm_update_ch(0, 2);
-	pwm_update_ch(2, 3);
-	//endphase
-	_delay_ms(2000);
 }
 
 
@@ -349,9 +335,11 @@ void setup() {
 
 
 void loop() {
-	sssp_receive_loop();
 
-	// phase_test_loop();
+	// sssp_receive_loop();
+	// pwm_ch_enable(1);
+	// pwm_update_ch(100, 1);
+	phase_test_loop();
 	// sinewave_allphase();
 	// triangle();
 }
