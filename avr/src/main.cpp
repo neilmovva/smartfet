@@ -46,17 +46,17 @@ const uint8_t REST_PWMLEVEL =  0;
 
 #define NUM_CHANNELS 	3
 
+// OC1A/B @ PB1/2 
 #define DDR_PWM 		DDRB
 #define PORT_PWM_CH1    PORTB
 #define PORT_PWM_CH2    PORTB
 #define PIN_PWM_CH1     1
 #define PIN_PWM_CH2     2
 
-
+// OC0A @ PD6 
 #define DDR_PWM_CH3 	DDRD
 #define PORT_PWM_CH3    PORTD
-#define PIN_PWM_CH3     5
-
+#define PIN_PWM_CH3     6	
 
 #define BAUDRATE 				38400
 #define ENTER_CHAR 				0x0D
@@ -76,8 +76,8 @@ void pwm_ch_disable(uint8_t channel) {
 		break;
 
 		case 3:
-		CLR(TCCR0A, COM0B1);
-		OCR0B = 0;
+		CLR(TCCR0A, COM0A1);
+		OCR0A = 0;
 		break;
 	}
 }
@@ -96,8 +96,8 @@ void pwm_ch_enable(uint8_t channel) {
 		break;
 
 		case 3:
-		SET(TCCR0A, COM0B1);
-		OCR0B = 0;
+		SET(TCCR0A, COM0A1);
+		OCR0A = 0;
 		break;
 	}
 }
@@ -123,7 +123,7 @@ void pwm_update_raw8(uint8_t pwm_level, uint8_t channel) {
 		break;
 
 		case 3:
-		OCR0B = pwm_level;
+		OCR0A = pwm_level;
 		break;
 	}
 }
@@ -227,6 +227,7 @@ void sssp_receive_loop() {
 
 
 void phase_test_loop() {
+	pwm_update_ch(25, 3);
 	//phase1
 	pwm_update_ch(10, 1);
 	pwm_update_ch(60, 2);
@@ -301,7 +302,7 @@ void setup() {
 
 	// flash initialization pattern
 	SET(DDR_LED, PIN_LED_R);
-	const uint8_t blink_seconds = 6;
+	const uint8_t blink_seconds = 2;
     for(uint8_t iter_blink = 0; iter_blink < (blink_seconds * 5); iter_blink++) {
 		SET(PORT_LED, PIN_LED_R);
 		_delay_ms(100);
@@ -320,10 +321,10 @@ void setup() {
 	TCNT1  = 0x0000;
 
 	// Timer0 setup (CH C)
-	// WGM 07, FastPWM, TOP=OCRA, 1x prescaler, out OC0B
-	TCCR0A = _BV(COM0B1) | _BV(WGM00) | _BV(WGM01);     
-	TCCR0B = _BV(WGM02) | _BV(CS00);
-	OCR0A = PWM_PERIOD_CYCLES;
+	// WGM 03, FastPWM, TOP=255, 1x prescaler, out OC0A
+	TCCR0A = _BV(COM0A1) | _BV(WGM00) | _BV(WGM01);     
+	TCCR0B = _BV(CS00);
+	OCR0A = 0;
 	TCNT0  = 0x00;
 
 	// turn off all PWM channels
