@@ -129,7 +129,14 @@ void pwm_update_raw8(uint8_t pwm_level, uint8_t channel) {
 }
 
 void pwm_update_ch(uint8_t powerlevel, uint8_t channel) {
-	uint16_t pwm_level = powerlevel * PWR_TO_PWM_MULT;
+	uint16_t pwm_level = 0;
+	
+	if (channel < 3) {
+		pwm_level = powerlevel * PWR_TO_PWM_MULT;
+	} else {
+		pwm_level = powerlevel * 2.5;
+	}
+
 	if(pwm_level > PWM_VALUE_MAX) {
 		pwm_level = PWM_VALUE_MAX;
 	}
@@ -227,13 +234,16 @@ void sssp_receive_loop() {
 
 
 void phase_test_loop() {
-	pwm_update_ch(25, 3);
+	pwm_update_ch(5, 3);
 	//phase1
-	pwm_update_ch(10, 1);
-	pwm_update_ch(60, 2);
+	pwm_update_ch(1, 1);
+	pwm_update_ch(1, 2);
 	//endphase
-	_delay_ms(10000);
-
+	_delay_ms(6000);
+	pwm_update_ch(10, 3);
+	_delay_ms(6000);
+	pwm_update_ch(15, 3);
+	_delay_ms(6000);
 }
 
 
