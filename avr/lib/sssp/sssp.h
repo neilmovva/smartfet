@@ -1,3 +1,5 @@
+#pragma once
+
 //SSSP = Sail Simple Serial Protocol
 struct sssp_packet_pwm {
 	char hdr[4];
@@ -33,3 +35,4 @@ uint8_t parse_channel(const char* str_pwmch) {
 	uint8_t result = d_one*1;
 	return result;
 }
+

@@ -1,147 +1,20 @@
 // Smartfet Firmware, written for ATmega328P.
 // nmovva 2018
 
-#include <Arduino.h>
-#include "mini-printf.h"
-#include "sssp.h"
-
-#include "sinetable.h"
-#define SINETABLE sin_a255_p4096
-
-//helper macros
-#define SET(x,y) (x |= (1<<y))
-#define FLP(x,y) (x ^= (1<<y))
-#define CLR(x,y) (x &= (~(1<<y)))
-
-inline int MAX(int a, int b) {
-    if (a > b)
-        return a;
-    return b;
+extern "C" {
+	#include <avr/sleep.h>
+	#include <avr/interrupt.h>
+	#include <util/delay.h>
+	#include "hal_pwm.h"
 }
 
-// #define DRV_INVERTED
-
-const uint16_t PWM_PERIOD_CYCLES 	=  200;
-const uint16_t PWM_VALUE_MAX 		=  PWM_PERIOD_CYCLES;
-const uint8_t  SSSP_MAX_PWR_LEVEL  	=  100;
-const uint8_t  PWR_TO_PWM_MULT 		=  2;
-
-#ifdef DRV_INVERTED
-const uint16_t  REST_PWMLEVEL		=  PWM_VALUE_MAX;
-#else 
-const uint8_t REST_PWMLEVEL =  0;
-#endif
-
-// #define REVB
-
-#ifdef REVB
-#define DDR_LED    	DDRD
-#define PORT_LED    PORTD
-#define PIN_LED_R   4
-#else
 #define DDR_LED    	DDRC
 #define PORT_LED    PORTC
 #define PIN_LED_R   0
-#endif
 
-#define NUM_CHANNELS 	3
-
-// OC1A/B @ PB1/2 
-#define DDR_PWM 		DDRB
-#define PORT_PWM_CH1    PORTB
-#define PORT_PWM_CH2    PORTB
-#define PIN_PWM_CH1     1
-#define PIN_PWM_CH2     2
-
-// OC0A @ PD6 
-#define DDR_PWM_CH3 	DDRD
-#define PORT_PWM_CH3    PORTD
-#define PIN_PWM_CH3     6	
-
-#define BAUDRATE 				38400
-#define ENTER_CHAR 				0x0D
-
-
-// HAL function, verify against hardware!
-void pwm_ch_disable(uint8_t channel) {
-	switch(channel) {
-		case 1:
-		CLR(TCCR1A, COM1A1);
-		OCR1A = 0;
-		break;
-
-		case 2:
-		CLR(TCCR1A, COM1B1);
-		OCR1B = 0;
-		break;
-
-		case 3:
-		CLR(TCCR0A, COM0A1);
-		OCR0A = 0;
-		break;
-	}
-}
-
-// HAL function, verify against hardware!
-void pwm_ch_enable(uint8_t channel) {
-	switch(channel) {
-		case 1:
-		SET(TCCR1A, COM1A1);
-		OCR1A = 0;
-		break;
-
-		case 2:
-		SET(TCCR1A, COM1B1);
-		OCR1B = 0;
-		break;
-
-		case 3:
-		SET(TCCR0A, COM0A1);
-		OCR0A = 0;
-		break;
-	}
-}
-
-void pwm_update_raw8(uint8_t pwm_level, uint8_t channel) {
-	#ifdef DRV_INVERTED
-	pwm_level = PWM_VALUE_MAX - pwm_level;
-	#endif
-
-	if(pwm_level == 0) {
-		pwm_ch_disable(channel);
-		return;
-	} 
-	pwm_ch_enable(channel);
-
-	switch(channel) {
-		case 1:
-		OCR1A = pwm_level;
-		break;
-
-		case 2:
-		OCR1B = pwm_level;
-		break;
-
-		case 3:
-		OCR0A = pwm_level;
-		break;
-	}
-}
-
-void pwm_update_ch(uint8_t powerlevel, uint8_t channel) {
-	uint16_t pwm_level = 0;
-	
-	if (channel < 3) {
-		pwm_level = powerlevel * PWR_TO_PWM_MULT;
-	} else {
-		pwm_level = powerlevel * 2.5;
-	}
-
-	if(pwm_level > PWM_VALUE_MAX) {
-		pwm_level = PWM_VALUE_MAX;
-	}
-	pwm_update_raw8(pwm_level, channel);
-}
+#include <Arduino.h>
+#include "sssp.h"
+#include "mini-printf.h"
 
 void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 	//unpack hdr and ftr strings
@@ -175,7 +48,7 @@ void sssp_process_packet_pwm(sssp_packet_pwm_t* pkt) {
 	uint8_t channel = parse_channel(str_channel);
 	bool command_is_sane = true;
 
-	if(powerlevel > SSSP_MAX_PWR_LEVEL) {
+	if(powerlevel > HAL_MAX_PWR_LEVEL) {
  		Serial.println("error   -- PWM value set too high, ignoring");
 		command_is_sane = false;
 	} 
@@ -233,124 +106,38 @@ void sssp_receive_loop() {
 }
 
 
-void phase_test_loop() {
-	pwm_update_ch(5, 3);
-	//phase1
-	pwm_update_ch(1, 1);
-	pwm_update_ch(1, 2);
-	//endphase
-	_delay_ms(6000);
-	pwm_update_ch(10, 3);
-	_delay_ms(6000);
-	pwm_update_ch(15, 3);
-	_delay_ms(6000);
-}
-
-
-void triangle() {
-
-	for(uint16_t step = 0; step < PWM_VALUE_MAX; step++) {
-		uint8_t pwr_a = step;
-		uint8_t pwr_b = (step + 127) % PWM_VALUE_MAX;
-
-		pwm_update_raw8(pwr_a, 1);
-		pwm_update_raw8(pwr_b, 2);
-		_delay_ms(20);
-	}
-
-	for(uint16_t step = PWM_VALUE_MAX; step > 0 ; step--) {
-		uint8_t pwr_a = step;
-		uint8_t pwr_b = (step - 127) % PWM_VALUE_MAX;
-
-		pwm_update_raw8(pwr_a, 1);
-		pwm_update_raw8(pwr_b, 2);
-		_delay_ms(20);
-	}
-
-	// turn off both channels
-	pwm_update_ch(0, 1);
-	pwm_update_ch(0, 2);
-}
-
-void sinewave_allphase() {
-	FLP(PORT_LED, PIN_LED_R);
-
-	const uint16_t table_pts = sizeof(SINETABLE);
-	const uint16_t phase_stride = table_pts / NUM_CHANNELS;
-
-	for(uint16_t theta = 0; theta < table_pts; theta++) {
-		for(uint8_t idx_ch = 0; idx_ch < NUM_CHANNELS; idx_ch++) {
-			uint16_t table_idx = (theta + idx_ch * phase_stride) % table_pts;
-			uint8_t pwr_ch =  MAX(pgm_read_byte(&SINETABLE[table_idx]), 5);
-			pwm_update_raw8(pwr_ch, idx_ch + 1);
-		}
-		_delay_ms(1);
-	}
-
-	// turn off all channels
-	pwm_update_ch(0, 1);
-	pwm_update_ch(0, 2);
-	pwm_update_ch(0, 3);
-}
-
-
-void setup() {
-	// assert signal pins immediately
-	SET(DDR_PWM, PIN_PWM_CH1);
-	SET(DDR_PWM, PIN_PWM_CH2);
-	SET(DDR_PWM_CH3, PIN_PWM_CH3);
-
-	#ifdef DRV_INVERTED
-	SET(PORT_PWM_CH1, PIN_PWM_CH1);
-	SET(PORT_PWM_CH2, PIN_PWM_CH2);
-	SET(PORT_IO_CH3, PIN_IO_CH3);
-	#else 
-	CLR(PORT_PWM_CH1, PIN_PWM_CH1);
-	CLR(PORT_PWM_CH2, PIN_PWM_CH2);
-	CLR(PORT_PWM_CH3, PIN_PWM_CH3);
-	#endif
+int main() {
+	
+	pwm_init();
 
 	// flash initialization pattern
 	SET(DDR_LED, PIN_LED_R);
 	const uint8_t blink_seconds = 2;
-    for(uint8_t iter_blink = 0; iter_blink < (blink_seconds * 5); iter_blink++) {
+    for(uint8_t iter_blink = 0; iter_blink < (blink_seconds * 10); iter_blink++) {
 		SET(PORT_LED, PIN_LED_R);
-		_delay_ms(100);
+		_delay_ms(10);
 		CLR(PORT_LED, PIN_LED_R);
-		_delay_ms(100);
+		_delay_ms(90);
     }
 
-	Serial.begin(BAUDRATE);
-	Serial.println("hello world");
 
-	// Timer1 setup (CH A and B)
-	// WGM 14, FastPWM, TOP=ICR1, 1x prescaler
-	TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM11);     
-	TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10);
-	ICR1 = PWM_PERIOD_CYCLES;
-	TCNT1  = 0x0000;
-
-	// Timer0 setup (CH C)
-	// WGM 03, FastPWM, TOP=255, 1x prescaler, out OC0A
-	TCCR0A = _BV(COM0A1) | _BV(WGM00) | _BV(WGM01);     
-	TCCR0B = _BV(CS00);
-	OCR0A = 0;
-	TCNT0  = 0x00;
-
-	// turn off all PWM channels
-	pwm_update_ch(0, 1);
-	pwm_update_ch(0, 2);
-	pwm_update_ch(0, 3);
-	
-}
+	pwm_ch_enable(3);
+	pwm_update_ch(30, 3);
 
 
-void loop() {
-
-	// sssp_receive_loop();
 	// pwm_ch_enable(1);
-	// pwm_update_ch(100, 1);
-	phase_test_loop();
-	// sinewave_allphase();
-	// triangle();
+	// pwm_ch_enable(2);
+	
+	// pwm_update_ch(10, 1);
+	// pwm_update_ch(10, 2);
+	
+
+	set_sleep_mode(SLEEP_MODE_IDLE);
+	while (1) {
+		cli();
+		sleep_enable();
+		sei();
+		sleep_cpu();			//go to sleep
+		sleep_disable();	//resume execution after ISR
+	}
 }
