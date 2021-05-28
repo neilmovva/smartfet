@@ -122,14 +122,12 @@ int main() {
 
 
 	pwm_ch_enable(3);
-	pwm_update_ch(30, 3);
+	pwm_update_ch(50, 3);
 
-
-	// pwm_ch_enable(1);
-	// pwm_ch_enable(2);
-	
-	// pwm_update_ch(10, 1);
-	// pwm_update_ch(10, 2);
+	pwm_ch_enable(1);
+	pwm_ch_enable(2);
+	pwm_update_ch(100, 1);
+	pwm_update_ch(100, 2);
 	
 
 	set_sleep_mode(SLEEP_MODE_IDLE);
